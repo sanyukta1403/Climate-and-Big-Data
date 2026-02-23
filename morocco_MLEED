@@ -57,7 +57,7 @@ print(mleed[["sudden", "slow"]].corr())
 # Seasonal cycle (monthly climatology)
 mleed["month_num"] = mleed.index.month
 seasonal = mleed.groupby("month_num")[["sudden", "slow"]].mean()
-
+mleed[mleed.index.month == 9]["sudden"].describe()
 plt.figure(figsize=(10,5))
 plt.plot(seasonal.index, seasonal["sudden"], label="Sudden-onset seasonal mean")
 plt.plot(seasonal.index, seasonal["slow"], label="Slow-onset seasonal mean")
