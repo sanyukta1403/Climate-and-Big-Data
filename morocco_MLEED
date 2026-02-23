@@ -25,7 +25,7 @@ emdat["Start Date"] = pd.to_datetime(
     emdat["Start Month"].astype(int).astype(str) + "-01"
 )
 
-# --- Plot MLEED time series ---
+# Plot MLEED time series 
 plt.figure(figsize=(14,6))
 plt.plot(mleed.index, mleed["sudden"], label="MLEED Sudden-onset")
 plt.plot(mleed.index, mleed["slow"], label="MLEED Slow-onset")
