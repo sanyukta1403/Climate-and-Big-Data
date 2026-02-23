@@ -1,7 +1,7 @@
 import pandas as pd
 import matplotlib.pyplot as plt
 
-# --- Load MLEED ---
+# Load MLEED 
 mleed = pd.read_csv("/Users/sanyuktasingh/Desktop/climate data class/Climate-and-Big-Data/Morocco Data Jan 12 2026.csv")
 mleed.columns = mleed.columns.str.strip()
 
@@ -14,7 +14,7 @@ mleed = mleed.rename(columns={
     "slow-onset environmental disaster": "slow"
 })
 
-# --- Load EM-DAT ---
+#  Load EM-DAT 
 emdat = pd.read_csv("/Users/sanyuktasingh/Desktop/climate data class/EM-DAT Custom Request Feb 17 2026.csv")
 emdat = emdat[(emdat["Disaster Group"] == "Natural") & (emdat["Country"] == "Morocco")]
 
@@ -35,7 +35,7 @@ plt.xlabel("Date")
 plt.ylabel("Monthly event count")
 plt.show()
 
-# --- Overlay EM-DAT events as dots ---
+# Overlay EM-DAT events as dots 
 y_dot = max(mleed["sudden"].max(), mleed["slow"].max()) * 0.95
 
 plt.figure(figsize=(14,6))
@@ -48,11 +48,11 @@ plt.xlabel("Date")
 plt.ylabel("Monthly event count")
 plt.show()
 
-# --- Compare Sudden vs Slow ---
+# Compare Sudden vs Slow 
 print("Correlation sudden vs slow:")
 print(mleed[["sudden", "slow"]].corr())
 
-# --- Seasonal cycle (monthly climatology) ---
+# Seasonal cycle (monthly climatology)
 mleed["month_num"] = mleed.index.month
 seasonal = mleed.groupby("month_num")[["sudden", "slow"]].mean()
 
