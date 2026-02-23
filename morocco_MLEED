@@ -1,0 +1,67 @@
+import pandas as pd
+import matplotlib.pyplot as plt
+
+# --- Load MLEED ---
+mleed = pd.read_csv("/Users/sanyuktasingh/Desktop/climate data class/Climate-and-Big-Data/Morocco Data Jan 12 2026.csv")
+mleed.columns = mleed.columns.str.strip()
+
+mleed["date"] = pd.to_datetime(mleed["date"])
+mleed = mleed.set_index("date").sort_index()
+
+# keep only the two columns you need + rename them
+mleed = mleed.rename(columns={
+    "sudden-onset environmental disaster": "sudden",
+    "slow-onset environmental disaster": "slow"
+})
+
+# --- Load EM-DAT ---
+emdat = pd.read_csv("/Users/sanyuktasingh/Desktop/climate data class/EM-DAT Custom Request Feb 17 2026.csv")
+emdat = emdat[(emdat["Disaster Group"] == "Natural") & (emdat["Country"] == "Morocco")]
+
+# build EM-DAT start dates (monthly)
+emdat["Start Month"] = emdat["Start Month"].fillna(1).astype(int)
+emdat["Start Date"] = pd.to_datetime(
+    emdat["Start Year"].astype(int).astype(str) + "-" +
+    emdat["Start Month"].astype(int).astype(str) + "-01"
+)
+
+# --- Plot MLEED time series ---
+plt.figure(figsize=(14,6))
+plt.plot(mleed.index, mleed["sudden"], label="MLEED Sudden-onset")
+plt.plot(mleed.index, mleed["slow"], label="MLEED Slow-onset")
+plt.legend()
+plt.title("MLEED Monthly Environmental Events - Morocco")
+plt.xlabel("Date")
+plt.ylabel("Monthly event count")
+plt.show()
+
+# --- Overlay EM-DAT events as dots ---
+y_dot = max(mleed["sudden"].max(), mleed["slow"].max()) * 0.95
+
+plt.figure(figsize=(14,6))
+plt.plot(mleed.index, mleed["sudden"], label="MLEED Sudden-onset")
+plt.plot(mleed.index, mleed["slow"], label="MLEED Slow-onset")
+plt.scatter(emdat["Start Date"], [y_dot]*len(emdat), alpha=0.7, label="EM-DAT natural disaster start")
+plt.legend()
+plt.title("Morocco: MLEED monthly events with EM-DAT starts (dots)")
+plt.xlabel("Date")
+plt.ylabel("Monthly event count")
+plt.show()
+
+# --- Compare Sudden vs Slow ---
+print("Correlation sudden vs slow:")
+print(mleed[["sudden", "slow"]].corr())
+
+# --- Seasonal cycle (monthly climatology) ---
+mleed["month_num"] = mleed.index.month
+seasonal = mleed.groupby("month_num")[["sudden", "slow"]].mean()
+
+plt.figure(figsize=(10,5))
+plt.plot(seasonal.index, seasonal["sudden"], label="Sudden-onset seasonal mean")
+plt.plot(seasonal.index, seasonal["slow"], label="Slow-onset seasonal mean")
+plt.xticks(range(1,13))
+plt.title("Seasonal Cycle of MLEED Environmental Events - Morocco")
+plt.xlabel("Month")
+plt.ylabel("Average monthly event count")
+plt.legend()
+plt.show()
