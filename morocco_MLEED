@@ -38,6 +38,8 @@ plt.show()
 # Overlay EM-DAT events as dots 
 y_dot = max(mleed["sudden"].max(), mleed["slow"].max()) * 0.95
 
+emdat = emdat[emdat["Start Date"] >= mleed.index.min()]
+
 plt.figure(figsize=(14,6))
 plt.plot(mleed.index, mleed["sudden"], label="MLEED Sudden-onset")
 plt.plot(mleed.index, mleed["slow"], label="MLEED Slow-onset")
