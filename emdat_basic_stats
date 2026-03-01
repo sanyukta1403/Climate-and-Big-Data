@@ -1,0 +1,32 @@
+import pandas as pd
+
+# Morocco + natural disasters Only
+emdat = pd.read_csv('/Users/sanyuktasingh/Desktop/climate data class/EM-DAT Custom Request Feb 17 2026.csv')
+
+emdat = emdat[
+    (emdat["Disaster Group"] == "Natural") &
+    (emdat["Country"] == "Morocco")
+].copy()
+
+#Count Disaster Types
+type_counts = emdat["Disaster Type"].value_counts().reset_index()
+type_counts.columns = ["Disaster Type", "Count"]
+
+#Calculate Percentages
+total = type_counts["Count"].sum()
+
+type_counts["Percentage"] = (
+    type_counts["Count"] / total * 100
+).round(2)
+
+#Add Grand Total Row
+grand_total = pd.DataFrame({
+    "Disaster Type": ["Grand Total"],
+    "Count": [total],
+    "Percentage": [100.00]
+})
+
+type_counts = pd.concat([type_counts, grand_total], ignore_index=True)
+
+#Display Table
+print(type_counts)
