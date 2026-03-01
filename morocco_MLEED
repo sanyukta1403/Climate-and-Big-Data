@@ -67,3 +67,155 @@ plt.xlabel("Month")
 plt.ylabel("Average monthly event count")
 plt.legend()
 plt.show()
+
+#incorporated feedback 
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+
+# ----------------------------
+# Load + prep MLEED
+# ----------------------------
+mleed = pd.read_csv("/Users/sanyuktasingh/Desktop/climate data class/Climate-and-Big-Data/Morocco Data Jan 12 2026.csv")
+mleed.columns = mleed.columns.str.strip()
+
+mleed["date"] = pd.to_datetime(mleed["date"])
+mleed = mleed.set_index("date").sort_index()
+
+mleed = mleed.rename(columns={
+    "sudden-onset environmental disaster": "sudden",
+    "slow-onset environmental disaster": "slow"
+})
+
+# Ensure MLEED index is monthly start (helps merges if your dates are monthly)
+mleed = mleed.copy()
+mleed.index = mleed.index.to_period("M").to_timestamp()
+
+# ----------------------------
+# Load + prep EM-DAT
+# ----------------------------
+emdat = pd.read_csv("/Users/sanyuktasingh/Desktop/climate data class/EM-DAT Custom Request Feb 17 2026.csv")
+
+# Filter to Morocco + Natural
+emdat = emdat[(emdat["Disaster Group"] == "Natural") & (emdat["Country"] == "Morocco")].copy()
+
+# Build monthly Start Date
+emdat["Start Month"] = emdat["Start Month"].fillna(1).astype(int)
+emdat["Start Date"] = pd.to_datetime(
+    emdat["Start Year"].astype(int).astype(str) + "-" +
+    emdat["Start Month"].astype(int).astype(str) + "-01"
+)
+emdat["Start Date"] = emdat["Start Date"].dt.to_period("M").dt.to_timestamp()
+
+# ----------------------------
+# Classify EM-DAT onset type
+# ----------------------------
+# Try to locate the best columns available in your EM-DAT export
+possible_type_cols = ["Disaster Type", "Disaster Subtype", "Disaster Subgroup", "Disaster Subsubtype"]
+available = [c for c in possible_type_cols if c in emdat.columns]
+
+# We'll use Type and (if available) Subtype for flood vs flash flood
+type_col = "Disaster Type" if "Disaster Type" in emdat.columns else (available[0] if available else None)
+subtype_col = "Disaster Subtype" if "Disaster Subtype" in emdat.columns else None
+
+if type_col is None:
+    raise ValueError("Could not find a disaster type column in EM-DAT. Check your CSV columns.")
+
+# Normalize strings
+for c in [type_col, subtype_col]:
+    if c and c in emdat.columns:
+        emdat[c] = emdat[c].astype(str).str.strip()
+
+# Your classifier lists
+SUDDEN_TYPES = {
+    "Earthquake", "Volcanic activity", "Tsunami",
+    "Storm", "Wildfire", "Mass movement (dry)",
+    "Landslide", "Avalanche"
+}
+
+SLOW_TYPES = {
+    "Drought", "Flood", "Extreme temperature",
+    "Insect infestation", "Glacial Lake Outburst"
+}
+
+def classify_onset(row):
+    t = row.get(type_col, "")
+    st = row.get(subtype_col, "") if subtype_col else ""
+
+    # Handle floods: subtype indicates flash flood vs riverine/general
+    # Common EM-DAT subtype strings include "Flash flood" / "Coastal flood" / "Riverine flood" etc.
+    if t == "Flood":
+        if subtype_col and "flash" in st.lower():
+            return "sudden"
+        else:
+            return "slow"
+
+    if t in SUDDEN_TYPES:
+        return "sudden"
+    if t in SLOW_TYPES:
+        return "slow"
+
+    # If EM-DAT has different naming, you can extend here.
+    return "unknown"
+
+emdat["onset"] = emdat.apply(classify_onset, axis=1)
+
+# Keep only events within MLEED date range
+emdat = emdat[emdat["Start Date"] >= mleed.index.min()].copy()
+
+# ----------------------------
+# Helper: overlay dots on the line using merge
+# ----------------------------
+def plot_mleed_with_emdat_dots(onset_type, y_col, title):
+    # Subset EM-DAT
+    e = emdat[emdat["onset"] == onset_type].copy()
+
+    # If multiple EM-DAT events happen in the same month, keep them all (scatter will stack).
+    # Merge to get the MLEED y-value for that month
+    merged = e.merge(
+        mleed[[y_col]].reset_index().rename(columns={"date": "mleed_date", y_col: "y_mleed"}),
+        left_on="Start Date",
+        right_on="mleed_date",
+        how="left"
+    )
+
+    # Drop EM-DAT events that don't land on a month present in MLEED (rare, but safe)
+    merged = merged.dropna(subset=["y_mleed"])
+
+    fig, ax = plt.subplots(figsize=(14, 6))
+
+    # Plot the relevant MLEED line
+    ax.plot(mleed.index, mleed[y_col], label=f"MLEED {y_col}", linewidth=2)
+
+    # Scatter EM-DAT dots ON the line (y from MLEED)
+    ax.scatter(
+        merged["Start Date"],
+        merged["y_mleed"],
+        alpha=0.7,
+        s=35,
+        label=f"EM-DAT {onset_type} starts (dots on line)"
+    )
+
+    ax.set_title(title)
+    ax.set_xlabel("Date")
+    ax.set_ylabel("Monthly event count")
+    ax.legend()
+    plt.show()
+
+# ----------------------------
+# Make the two separate plots (as your feedback suggests)
+# ----------------------------
+plot_mleed_with_emdat_dots(
+    onset_type="sudden",
+    y_col="sudden",
+    title="Morocco: MLEED Sudden-onset monthly events with EM-DAT sudden starts (dots on line)"
+)
+
+plot_mleed_with_emdat_dots(
+    onset_type="slow",
+    y_col="slow",
+    title="Morocco: MLEED Slow-onset monthly events with EM-DAT slow starts (dots on line)"
+)
+
+# Optional: quick check of how many events were classified
+print(emdat["onset"].value_counts(dropna=False))
